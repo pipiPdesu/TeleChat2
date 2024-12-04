@@ -158,7 +158,6 @@ python -c "import mindspore;mindspore.set_context(device_target='Ascend');mindsp
 cd /workspace/TeleChat2/mindformers/research/telechat2
 #运行推理
 python3 run_telechat_predict.py  --vocab_file_path tokenizer.model  --checkpoint_path  /mnt/model/TeleChat2-7B_ms.ckpt --use_parallel False --yaml_file predict_telechat_7b.yaml
-
 ```
 ![推理](../images/推理.png)
 
@@ -185,3 +184,29 @@ bash msrun_launcher.sh "python run_telechat.py  --config finetune_telechat_7b.ya
 ```
 
 ![微调](../images/微调.png)
+
+#### 参数说明
+
+msrun_launcher.sh 所提供的参数如下表所示
+
+| **参数**         | **单机是否必选** | **多机是否必选** |    **默认值**    | **说明**                         |
+| ---------------- | :--------------: | :--------------: | :--------------: | -------------------------------- |
+| WORKER_NUM       |     &check;      |     &check;      |        8         | 所有节点中使用计算卡的总数       |
+| LOCAL_WORKER     |        -         |     &check;      |        8         | 当前节点中使用计算卡的数量       |
+| MASTER_ADDR      |        -         |     &check;      |    127.0.0.1     | 指定分布式启动主节点的ip         |
+| MASTER_PORT      |        -         |     &check;      |       8118       | 指定分布式启动绑定的端口号       |
+| NODE_RANK        |        -         |     &check;      |        0         | 指定当前节点的rank id            |
+| LOG_DIR          |        -         |     &check;      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
+| JOIN             |        -         |     &check;      |      False       | 是否等待所有分布式进程退出       |
+| CLUSTER_TIME_OUT |        -         |     &check;      |       7200       | 分布式启动的等待时间，单位为秒   |
+
+
+
+
+
+## 使用注意
+
+在使用中模型位置是在data03/workspace下，所以上述所有需要用到模型的路径都要变成mnt/model/workspace/TeleChat2-7B_ms.ckpt
+
+
+
