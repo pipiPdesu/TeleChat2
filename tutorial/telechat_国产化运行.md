@@ -151,6 +151,20 @@ python -c "import mindspore;mindspore.set_context(device_target='Ascend');mindsp
 ```
 ![验证环境](../images/验证环境.png)
 
+验证mindformers
+
+```
+python -c "import mindformers;mindformers.run_check()"
+```
+
+会连着mindspore一起验证，然后验证pretrain和predict，这个过程会构造一个两层的transformers块，参数竟然有666M。
+
+```
+UserWarning: The value of the smallest subnormal for <class 'numpy.float64'> type is zero.
+```
+
+这个warning来自numpy，看不下去可以回退numpy版本。
+
 # 模型推理
 
 ```sh
@@ -160,6 +174,31 @@ cd /workspace/TeleChat2/mindformers/research/telechat2
 python3 run_telechat_predict.py  --vocab_file_path tokenizer.model  --checkpoint_path  /mnt/model/TeleChat2-7B_ms.ckpt --use_parallel False --yaml_file predict_telechat_7b.yaml
 ```
 ![推理](../images/推理.png)
+
+也可以自己传入输入文件推理，格式为
+
+```
+{"input": "生抽和老抽的区别？"}
+{"input": "9.11和9.8哪个大"}
+{"input": "5个海盗抢得100枚金币，他们按抽签的顺序依次提方案：首先由1号提出分配方案，然后5人表决，超过半数同意方案才被通过，否则他将被扔入大海喂鲨鱼，依此类推。 假定“每人海盗都是绝顶聪明且很理智”，那么“第一个海盗提出怎样的分配方案才能够使自己的收益最大化？"}
+```
+
+如果你想要控制生成长度，有以下几种方式
+
+1. 在yaml里修改max_decode_length，该参数的含义是input prompt + max_new_tokens的总tokens数量（其实是对标其他框架的max tokens的）
+
+2. 在generate前修改传入的max new tokens，这个也可以通过在args传入参数解决
+
+3. 在config里添加max new tokens，把推理脚本的max_decode_length=None注释掉，yaml里修改调整
+
+   注意：如果添加max new tokens参数，该参数会overwrite上面的max_decode_length
+
+如果你想要获取output logits 或者 score，请
+
+1. 设置return_dict_in_generate为True，只有这样才能获得其他信息
+2. 设置output_scores、output_logits等你想要的为True
+3. 关掉is_sample_acceleration，我也没有找到这个参数在哪，可能默认是False吧
+4. 注意返回的是词典，需要改一下output的解码
 
 # 模型微调
 
@@ -173,6 +212,9 @@ python telechat_preprocess.py --input_dataset_file /workspace/TeleChat2/datas/de
 # vocab_file_path: 词模型文件路径
 # max_length: 数据集长度
 # output_path: 生成数据集的路径
+#这里的数据集竟然真的是工具调用的微调数据集，有550条,但是工具调用完全用不上啊
+#微调数据集的格式为{"system":,"dialog":{"role(user or bot)":,"content":}}
+#经过处理后的格式为<_system>system prompt<_user>content<_bot>content<_end>[126136, 29]('\n')bot后接end接换行
 ```
 
 ![数据处理](../images/数据处理.png)
@@ -182,6 +224,21 @@ python telechat_preprocess.py --input_dataset_file /workspace/TeleChat2/datas/de
 ```shell
 bash msrun_launcher.sh "python run_telechat.py  --config finetune_telechat_7b.yaml  --train_dataset ./mindrecords   --load_checkpoint /mnt/model/TeleChat2-7B_ms.ckpt  --use_parallel True --auto_trans_ckpt True"  8 8 127.0.0.1 8118 0 output/msrun_log False 300
 ```
+
+当控制台出现如下日志时：
+
+```
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:0, log file:output/msrun_log/worker_0.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:1, log file:output/msrun_log/worker_1.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:2, log file:output/msrun_log/worker_2.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:3, log file:output/msrun_log/worker_3.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:4, log file:output/msrun_log/worker_4.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:5, log file:output/msrun_log/worker_5.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:6, log file:output/msrun_log/worker_6.log. Environment variable [RANK_ID] is exported.
+[mindspore/parallel/cluster/process_entity/_api.py:224] Start worker process with rank id:7, log file:output/msrun_log/worker_7.log. Environment variable [RANK_ID] is exported.
+```
+
+说明启动微调成功。此时抓取每个worker的日志可以看到
 
 ![微调](../images/微调.png)
 
@@ -199,10 +256,6 @@ msrun_launcher.sh 所提供的参数如下表所示
 | LOG_DIR          |        -         |     &check;      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
 | JOIN             |        -         |     &check;      |      False       | 是否等待所有分布式进程退出       |
 | CLUSTER_TIME_OUT |        -         |     &check;      |       7200       | 分布式启动的等待时间，单位为秒   |
-
-
-
-
 
 ## 使用注意
 
