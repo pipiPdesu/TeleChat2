@@ -1,6 +1,6 @@
 # 前言
 
-本指引旨在华为昇腾800TA2上运行TeleChat2，包含了相关素材的获取、环境的准备、模型的简单推理、模型的快速
+本指引旨在华为昇腾800TA2上运行TeleChat2，包含了相关素材的获取、环境的准备、模型的简单推理、模型的快速部署。
 
 # 环境准备
 
@@ -200,6 +200,24 @@ python3 run_telechat_predict.py  --vocab_file_path tokenizer.model  --checkpoint
 3. 关掉is_sample_acceleration，我也没有找到这个参数在哪，可能默认是False吧
 4. 注意返回的是词典，需要改一下output的解码
 
+### 多卡推理
+
+```
+bash scripts/msrun_launcher.sh "python3 run_telechat_predict.py  --vocab_file_path tokenizer.model  --checkpoint_path  /mnt/model/TeleChat2-7B_ms.ckpt --use_parallel True --yaml_file predict_telechat_7b.yaml --input_file input.json" 2
+```
+
+好像他的切分策略会耗费比较长的时间，7b模型大概两分钟左右？
+
+同样是报`Environment variable [RANK_ID] is exported.`后开始分布式启动，请通过log查看，log好像是增量写的。
+
+#### 权重转换
+
+将预训练权重转换为对应分布式策略的权重，将`auto_trans_ckpt`开关置为True，并配置权重转换相关参数，由Mindformer自动完成权重转换。
+
+#### msrun_launcher.sh
+
+能调整的参数写在下面
+
 # 模型微调
 
 处理示例数据
@@ -224,6 +242,8 @@ python telechat_preprocess.py --input_dataset_file /workspace/TeleChat2/datas/de
 ```shell
 bash msrun_launcher.sh "python run_telechat.py  --config finetune_telechat_7b.yaml  --train_dataset ./mindrecords   --load_checkpoint /mnt/model/TeleChat2-7B_ms.ckpt  --use_parallel True --auto_trans_ckpt True"  8 8 127.0.0.1 8118 0 output/msrun_log False 300
 ```
+
+（如果不做多机的话只需要第一个8就ok）
 
 当控制台出现如下日志时：
 
@@ -256,6 +276,38 @@ msrun_launcher.sh 所提供的参数如下表所示
 | LOG_DIR          |        -         |     &check;      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
 | JOIN             |        -         |     &check;      |      False       | 是否等待所有分布式进程退出       |
 | CLUSTER_TIME_OUT |        -         |     &check;      |       7200       | 分布式启动的等待时间，单位为秒   |
+
+### 微调权重合并
+
+分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
+
+- step 1. 获取模型切分策略文件：
+
+在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
+
+- step 2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
+
+```shell
+python transform_ckpt.py \
+--src_ckpt_strategy {path}/output/strategy/ \
+--src_ckpt_dir {path}/output/checkpoint/ \
+--dst_ckpt_dir {path}/target_checkpoint/ \
+--prefix telechat_7B
+```
+
+```text
+# 参数说明
+src_ckpt_strategy: 步骤1中的切分策略文件路径
+src_ckpt_dir: 原切分权重文件夹
+dst_ckpt_dir: 目标路径
+prefix: ckpt文件前缀名
+```
+
+会生成一个rank0的文件夹，里面是新的模型权重
+
+## PEFT
+
+
 
 ## 使用注意
 

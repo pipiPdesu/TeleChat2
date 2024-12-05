@@ -281,11 +281,11 @@ use_parallel：开启并行训练
 
 ### 参数配置
 
-- 设置环境变量：
+- 设置环境变量（这个环境变量已经写在yaml里了）：
 
 export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=InferenceMatmulSplit,PagedAttention
 
-- 7b模型支持单机**单卡推理**
+- 7b模型支持单机**单卡推理**（可以作为变量传进去了目前）
 
 在`predict_telechat_7b.yaml`中填写`vocab_file`字段
 
