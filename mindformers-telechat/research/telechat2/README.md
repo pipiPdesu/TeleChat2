@@ -249,15 +249,17 @@ cd mindformers/
 
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
 bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
- --config research/telechat2/finetune_telechat_115b.yaml \
- --train_dataset /{path}/dataset.mindrecord \
+ --config research/telechat2/finetune_telechat_7b.yaml \
+ --load_checkpoint /mnt/model/workspace/TeleChat2-7B_ms.ckpt \
+ --train_dataset ./mindrecords \
  --use_parallel True \
   16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
 bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
- --config research/telechat2/finetune_telechat_115b.yaml \
- --train_dataset /{path}/dataset.mindrecord \
+ --config research/telechat2/finetune_telechat_7b.yaml \
+ --load_checkpoint /mnt/model/workspace/TeleChat2-7B_ms.ckpt \
+ --train_dataset ./mindrecords \
  --use_parallel True \
   16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```

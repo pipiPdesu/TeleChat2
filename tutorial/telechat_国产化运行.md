@@ -237,6 +237,8 @@ python telechat_preprocess.py --input_dataset_file /workspace/TeleChat2/datas/de
 
 ![数据处理](../images/数据处理.png)
 
+### 单机多卡
+
 开始微调
 
 ```shell
@@ -261,6 +263,32 @@ bash msrun_launcher.sh "python run_telechat.py  --config finetune_telechat_7b.ya
 说明启动微调成功。此时抓取每个worker的日志可以看到
 
 ![微调](../images/微调.png)
+
+### 多机多卡
+
+```
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+export HCCL_IF_IP=192.168.1.1
+unset RANK_TABLE_FILE
+bash msrun_launcher.sh "python run_telechat.py \
+ --config finetune_telechat_7b.yaml \
+ --load_checkpoint /mnt/model/workspace/TeleChat2-7B_ms.ckpt \
+ --train_dataset ./mindrecords \
+ --use_parallel True \
+ --auto_trans_ckpt True \ 
+  16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+export HCCL_IF_IP=192.168.1.2
+unset RANK_TABLE_FILE
+bash msrun_launcher.sh "python run_telechat.py \
+ --config finetune_telechat_7b.yaml \
+ --load_checkpoint /mnt/model/workspace/TeleChat2-7B_ms.ckpt \
+ --train_dataset ./mindrecords \
+ --use_parallel True \
+ --auto_trans_ckpt True \ 
+  16 8 192.168.1.1 8118 1 output/msrun_log False 300
+```
 
 #### 参数说明
 
@@ -305,7 +333,7 @@ prefix: ckpt文件前缀名
 
 会生成一个rank0的文件夹，里面是新的模型权重
 
-## PEFT
+
 
 
 
